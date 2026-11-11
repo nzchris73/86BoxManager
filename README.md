@@ -15,21 +15,22 @@ It's written in C# with Windows Forms. Please see the [wiki](https://github.com/
 System requirements are the same as for 86Box. Additionally, the following is required:  
 
 * [86Box 3.0](https://github.com/86Box/86Box/releases) or later (earlier builds don't support all the features the Manager expects)
-* [.NET Framework 4.6](https://dotnet.microsoft.com/download/dotnet-framework/net46)
+* [.NET 10 Desktop Runtime (x86)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
 ## Support
 If you have any issues, questions, suggestions, etc., please follow the [troubleshooting steps](https://github.com/86Box/86BoxManager/wiki/Troubleshooting-steps) or visit the official 86Box support channels on IRC and Discord (see the main 86Box repo for links). Lead developer, daviunic, is often idling there under the name Overdoze.
 
 ## How to use
-1. Download the desired build [here](https://github.com/86Box/86BoxManager/releases)
-2. Run `86Manager.exe`
-3. Go to Settings, choose the folder where `86Box.exe` is located (along with the roms folder) and a folder where your virtual machines will be located (for configs, nvr folders, etc.)
-4. Start creating new virtual machines and enjoy
+1. If upgrading from a previous version, run `86BoxManager.LegacyMigration.exe` once before starting the new version (the migration utility requires .NET Framework 4.8). It converts the existing VM registry entries to JSON and saves the original entries under the `Legacy Backup` subkey.
+2. Download the desired build [here](https://github.com/86Box/86BoxManager/releases)
+3. Run `86Manager.exe`
+4. Go to Settings, choose the folder where `86Box.exe` is located (along with the roms folder) and a folder where your virtual machines will be located (for configs, nvr folders, etc.)
+5. Start creating new virtual machines and enjoy
 
 ## How to build
 1. Clone the repo
-2. Open `86BoxManager.sln` solution file in Visual Studio
+2. Open `86BoxManager.sln` solution file in Visual Studio with the .NET 10 SDK
 3. Make your changes
 4. Choose the `Release` configuration and `x86` platform/CPU
 5. Build the solution
-6. `86Manager.exe` is now in `Bin\x86\Release\`
+6. `86Manager.exe` is in `86BoxManager\bin\x86\Release\net10.0-windows10.0.17763.0\win-x86\`; `86BoxManager.LegacyMigration.exe` is in `LegacyMigration\bin\x86\Release\net48\`

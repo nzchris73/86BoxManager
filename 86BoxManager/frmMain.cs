@@ -1,12 +1,10 @@
 ﻿using _86boxManager.Properties;
-using IWshRuntimeLibrary;
 using Microsoft.Win32;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -309,10 +307,13 @@ namespace _86boxManager
 
                 foreach (var value in regkey.GetValueNames())
                 {
-                    MemoryStream ms = new MemoryStream((byte[])regkey.GetValue(value));
-                    BinaryFormatter bf = new BinaryFormatter();
-                    vm = (VM)bf.Deserialize(ms);
-                    ms.Close();
+                    object storedValue = regkey.GetValue(value);
+                    if (storedValue is not string json)
+                    {
+                        throw new InvalidOperationException("Legacy virtual-machine data must be migrated before it can be loaded.");
+                    }
+
+                    vm = VMRegistryStorage.Deserialize(json);
 
                     ListViewItem newLvi = new ListViewItem(vm.Name)
                     {
@@ -338,7 +339,10 @@ namespace _86boxManager
             }
             catch (Exception ex)
             {
-                MessageBox.Show("The Virtual Machines registry key could not be opened, so no stored virtual machines can be used. Make sure you have the required permissions and try again.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                string message = ex is InvalidOperationException
+                    ? ex.Message + "\n\nRun 86BoxManager.LegacyMigration.exe to migrate existing virtual machines, then restart 86Box Manager."
+                    : "The Virtual Machines registry key could not be opened, so no stored virtual machines can be used. Make sure you have the required permissions and try again.";
+                MessageBox.Show(message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -913,15 +917,8 @@ namespace _86boxManager
             lstVMs.Items.Add(newLvi);
             Directory.CreateDirectory(cfgpath + newVM.Name);
 
-            using (var ms = new MemoryStream())
-            {
-                var formatter = new BinaryFormatter();
-                formatter.Serialize(ms, newVM);
-                var data = ms.ToArray();
-
-                RegistryKey regkey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\86Box\Virtual Machines", true);
-                regkey.SetValue(newVM.Name, data, RegistryValueKind.Binary);
-            }
+            RegistryKey regkey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\86Box\Virtual Machines", true);
+            regkey.SetValue(newVM.Name, VMRegistryStorage.Serialize(newVM), RegistryValueKind.String);
 
             MessageBox.Show("Virtual machine \"" + newVM.Name + "\" was successfully created!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
@@ -1001,15 +998,8 @@ namespace _86boxManager
 
             //Create a new registry value with new info, delete the old one
             RegistryKey regkey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\86Box\Virtual Machines", true);
-            using (var ms = new MemoryStream())
-            {
-                regkey.DeleteValue(oldname);
-                var formatter = new BinaryFormatter();
-                formatter.Serialize(ms, vm);
-                var data = ms.ToArray();
-                regkey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\86Box\Virtual Machines", true);
-                regkey.SetValue(vm.Name, data, RegistryValueKind.Binary);
-            }
+            regkey.DeleteValue(oldname);
+            regkey.SetValue(vm.Name, VMRegistryStorage.Serialize(vm), RegistryValueKind.String);
             regkey.Close();
 
             MessageBox.Show("Virtual machine \"" + vm.Name + "\" was successfully modified. Please update its configuration so that any absolute paths (e.g. for hard disk images) point to the new folder.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -1378,9 +1368,9 @@ namespace _86boxManager
                 VM vm = (VM)lvi.Tag;
                 try
                 {
-                    WshShell shell = new WshShell();
+                    dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
                     string shortcutAddress = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\" + vm.Name + ".lnk";
-                    IWshShortcut shortcut = (IWshShortcut)shell.CreateShortcut(shortcutAddress);
+                    dynamic shortcut = shell.CreateShortcut(shortcutAddress);
                     shortcut.Description = vm.Desc;
                     shortcut.IconLocation = Application.StartupPath + @"\86manager.exe,0";
                     shortcut.TargetPath = Application.StartupPath + @"\86manager.exe";
@@ -1693,14 +1683,8 @@ namespace _86boxManager
                 importFailed = true; //Set this flag so we can inform the user at the end
             }
 
-            using (var ms = new MemoryStream())
-            {
-                var formatter = new BinaryFormatter();
-                formatter.Serialize(ms, newVM);
-                var data = ms.ToArray();
-                RegistryKey regkey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\86Box\Virtual Machines", true);
-                regkey.SetValue(newVM.Name, data, RegistryValueKind.Binary);
-            }
+            RegistryKey regkey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\86Box\Virtual Machines", true);
+            regkey.SetValue(newVM.Name, VMRegistryStorage.Serialize(newVM), RegistryValueKind.String);
 
             if (importFailed)
             {
